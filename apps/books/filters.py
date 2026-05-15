@@ -1,32 +1,17 @@
-# import django_filters
-# from .models import Book
-#
-#
-# class BookFilter(django_filters.FilterSet):
-#     """
-#     Kitoblarni filtrlash
-#     Ishlatish: /api/v1/books/?author=Qodiriy&genre=Roman
-#     """
-#     author = django_filters.CharFilter(
-#         field_name="author__last_name",
-#         lookup_expr="icontains",
-#         label="Muallif familiyasi",
-#     )
-#     genre = django_filters.CharFilter(
-#         field_name="genre__name",
-#         lookup_expr="icontains",
-#         label="Janr nomi",
-#     )
-#     available = django_filters.BooleanFilter(
-#         method="filter_available",
-#         label="Faqat mavjudlar",
-#     )
-#
-#     def filter_available(self, queryset, name, value):
-#         if value:
-#             return queryset.filter(available_copies__gt=0)
-#         return queryset
-#
-#     class Meta:
-#         model = Book
-#         fields = ["author", "genre", "available"]
+import django_filters
+from .models import Books
+
+class BookFilter(django_filters.FilterSet):
+    """
+    Kitoblar uchun qidiruv tizimi
+    """
+
+    # Kitob nomi ichida qisman qidirish (O'tkan kunlar -> 'o'tkan' deb yozsa ham topadi)
+    title = django_filters.CharFilter(lookup_expr='icontains')
+
+    # Ma'lum bir yildan keyin chiqqan kitoblarni qidirish
+    created_after = django_filters.DateFilter(field_name="created_at", lookup_expr='gte')
+
+    class Meta:
+        model = Books
+        fields = ['category', 'author', 'language', 'title']

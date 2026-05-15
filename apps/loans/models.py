@@ -35,6 +35,7 @@ class Loans(models.Model):
     Kim, qaysi nusxani, qachon oldi va qaytardi.
     """
     class Status(models.TextChoices):
+        PENDING = 'pending', 'Kutilmoqda'
         BORROWED = 'borrowed', 'Ijarada'
         RETURNED = 'returned', 'Qaytarildi'
         OVERDUE = 'overdue', 'Muddati o\'tdi'
@@ -43,10 +44,11 @@ class Loans(models.Model):
     copy = models.ForeignKey('books.BookCopies', on_delete=models.CASCADE, verbose_name="Kitob nusxasi")
     user = models.ForeignKey('users.User', on_delete=models.CASCADE, related_name='loans', verbose_name="Foydalanuvchi")
     issued_by = models.ForeignKey('users.User', on_delete=models.SET_NULL, null=True, related_name="issued_loans", verbose_name="Kim berdi")
-    due_date = models.DateField(verbose_name="Qaytarish muddati")
+    due_date = models.DateField(verbose_name="Qaytarish muddati", null=True, blank=True)
+    requested_days = models.PositiveIntegerField(verbose_name="So'ralgan kunlar", default=10)
     returned_date = models.DateField(null=True, blank=True, verbose_name="Qaytarilgan sana")
     returned_to = models.ForeignKey('users.User', on_delete=models.SET_NULL, related_name='returned_loans', null=True, blank=True, verbose_name="Qabul qilingan")
-    status = models.CharField(max_length=20, choices=Status.choices, default=Status.BORROWED, verbose_name="Holati")
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING, verbose_name="Holati")
     notes = models.TextField(null=True, blank=True, verbose_name="Izoh")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Yaratilgan sana")
 

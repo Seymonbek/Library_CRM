@@ -106,7 +106,7 @@ class LoanCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Loans
-        fields = ["id", "book_id", "user_id", "due_date", "notes"]
+        fields = ["id", "book_id", "user_id", "requested_days", "notes"]
         read_only_fields = ["id"]
 
     def validate_user(self, value):
@@ -119,15 +119,9 @@ class LoanCreateSerializer(serializers.ModelSerializer):
 
         return value
 
-    def validate_due_date(self, value):
-        """Qaytarish muddati o'tib ketgan sana bo'lmasligini tekshirish."""
-        if value <= timezone.now().date():
-            raise serializers.ValidationError("Qaytarish muddati bugundan keyin bo‘lishi kerak.")
-        return value
-
     def validate(self, data):
         """Umumiy mantiqiy tekshiruv: Kitob nusxasi bo'shmi?"""
-        book = data["book_id"]
+        book = data["book"]
         available_copy = BookCopies.objects.filter(book=book, status=BookCopies.Status.ON_SHELF).select_for_update().first()
 
         if not available_copy:
@@ -138,19 +132,15 @@ class LoanCreateSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def create(self, validated_data):
         """Ijara yaratilganda kitob holatini 'borrowed'ga o'zgartirish."""
-        validated_data.pop("book_id")
+        validated_data.pop("book")
         copy = validated_data.pop("copy")
         request = self.context.get("request")
 
         # Ijara yaratish
-        loan = Loans.objects.create(copy=copy, issued_by=request.user if request else None, **validated_data)
-
-        # Kitob holatini yangilash
-        copy.status = BookCopies.Status.ON_LOAN
-        copy.save(update_fields=["status"])
+        loan = Loans.objects.create(copy=copy, status=Loans.Status.PENDING, **validated_data)
 
         perform_logging(self, loan, SystemLogs.Action.LOAN_CREATED, SystemLogs.TargetType.LOAN,
-                        details=f"Kitob ({copy.inventory_number}) ijaraga berildi.")
+                        details=f"Kitobga bron (so'rov) yuborildi: {copy.inventory_number}")
 
         return loan
 #

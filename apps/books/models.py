@@ -105,7 +105,7 @@ class Books(models.Model):
     language = models.CharField(max_length=20, choices=Language.choices, default=Language.UZBEK, verbose_name="Til")
     page_count = models.PositiveIntegerField(null=True, blank=True, verbose_name="Sahifalar soni")
     description = models.TextField(null=True, blank=True, verbose_name="Tavsif")
-    cover_image = models.CharField(max_length=500, null=True, blank=True, verbose_name="Muqova rasmi")
+    cover_image = models.ImageField(upload_to="books/covers/", null=True, blank=True, verbose_name="Muqova rasmi")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Yaratilgan sana")
 
     class Meta:

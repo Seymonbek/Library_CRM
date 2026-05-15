@@ -36,7 +36,7 @@ class User(AbstractUser):
         return f"{self.get_full_name()} ({self.role})"
 
     # Mantiqiy tekshiruvlar
-    @property
+    @property # Propertyni o'zgartirib bo'lmaydi uni faqat o'qish uchun chaqirish mumkin
     def can_manage_books(self):
         """Faqat admin va super admin kitoblar bilan ishlay oladi"""
         return self.role in [self.Role.ADMIN, self.Role.SUPER_ADMIN]

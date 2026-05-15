@@ -11,12 +11,26 @@ from drf_spectacular.utils import extend_schema
 # Login viewni o'rab olamiz va tag beramiz
 @extend_schema(tags=['Auth'])
 class LoginView(TokenObtainPairView):
-    pass
+    """
+    Foydalanuvchi login qilishi va JWT token olishi uchun API.
+    Username va Password yuboriladi.
+    """
+
+    # SimpleJWT o'zining serializerini ishlatadi, lekin biz uni aniq ko'rsatib qo'yamiz
+    serializer_class = TokenObtainPairView.serializer_class
+
+    # Login hamma uchun ochiq bo'lishi shart
+    permission_classes = [permissions.AllowAny]
+
 
 # Refresh viewni o'rab olamiz va tag beramiz
 @extend_schema(tags=['Auth'])
 class RefreshTokenView(TokenRefreshView):
-    pass
+    """
+    Eski refresh tokenni berib yangi access token olish API.
+    """
+    serializer_class = TokenRefreshView.serializer_class
+    permission_classes = [permissions.AllowAny]
 
 @extend_schema(tags=['Users'])
 class UserViewSet(viewsets.ModelViewSet):

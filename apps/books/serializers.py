@@ -84,11 +84,7 @@ class BookListSerializer(serializers.ModelSerializer):
 
 class BookCopySerializer(serializers.ModelSerializer):
     book = BookListSerializer(read_only=True)
-    book_id = serializers.PrimaryKeyRelatedField(
-        queryset=Books.objects.all(),
-        source="book",
-        write_only=True
-    )
+    book_id = serializers.PrimaryKeyRelatedField(queryset=Books.objects.all(), source="book", write_only=True)
 
     class Meta:
         model = BookCopies

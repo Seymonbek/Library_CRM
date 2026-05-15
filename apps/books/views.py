@@ -1,5 +1,7 @@
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, filters
+
+from .filters import BookFilter
 from .models import Books, Author, BookCopies, Category, Publisher
 from .serializers import BooksDetailSerializer, BookListSerializer, BookCopySerializer, AuthorSerializer, PublisherSerializer, CategorySerializer
 from drf_spectacular.utils import extend_schema
@@ -10,7 +12,7 @@ class BookViewSet(viewsets.ModelViewSet):
     queryset = Books.objects.all().select_related('author', 'category', 'publisher')
 
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['category', 'author', 'language']
+    filterset_class = BookFilter
     search_fields = ['title', 'author__first_name', 'author__last_name', 'isbn']
 
     def get_serializer_class(self):
