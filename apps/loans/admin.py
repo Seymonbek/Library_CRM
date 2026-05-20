@@ -1,8 +1,12 @@
 from datetime import timezone, timedelta
+from logging import WARNING
 
 from  django.contrib import admin, messages
 # from django.contrib.messages import WARNING
+from jsonschema import ValidationError
 from unfold.admin import ModelAdmin
+
+from apps.loans.services import approve_loan_request
 from .models import Loans, Fines, Waitlists, Notifications, SystemLogs, LibrarySettings
 from .utils import perform_logging
 from ..books.models import BookCopies
@@ -12,70 +16,63 @@ from ..books.models import BookCopies
 class LoanAdmin(ModelAdmin):
     list_display = ["id", "user", "copy", "status", "requested_days", "due_date", "issued_by"]
     list_filter = ["status", "due_date"]
-    search_fields = ["user__phone_number", "copy__inventory_number"]
+    search_fields = ["user__phone_number", "copy__inventory_number", "copy__book__title"]
     readonly_fields = ["created_at"]
     actions = ["issue_book_action"]
 
-    @admin.action(description="Tanlangan kitoblarni o'quvchiga topshirish (Tasdiqlash)")
+    @admin.action(description="Tanlangan pending so'rovlarni tasdiqlash")
     def issue_book_action(self, request, queryset):
-        """
-        Kutubxonachi tugmani bosganida ishlaydi.
-        """
-        pending_loans = queryset.filter(status=Loans.Status.PENDING)
+        
+        pending_loans = queryset.filter(status=Loans.Status.PENDING).select_related("copy", "copy__book", "user")
 
         if not pending_loans.exists():
-            self.message_user(request, "Hech qanday kutilayotgan so'rov tanlanmadi.")
+            self.message_user(request, "Hech qanday kutilayotgan so'rov tanlanmadi.", message=WARNING)
             return
+        
+        success_count = 0
+        error_count = 0
 
-        count = 0
         for loan in pending_loans:
-            # 1. Muddatni hisoblaymiz: Bugun + foydalanuvchi so'ragan kunlar
-            today = timezone.now().date()
-            loan.due_date = today + timedelta(days=loan.requested_days)
-
-            # 2. Statusni o'zgartiramiz
-            loan.status = Loans.Status.BORROWED
-
-            # 3. 'Kim berdi' maydoniga aynan shu tugmani bosgan adminni yozamiz
-            loan.issued_by = request.user
-
-            # 4. Kitob nusxasini bazada 'Ijarada' deb band qilamiz
-            copy = loan.copy
-            copy.status = BookCopies.Status.ON_LOAN
-            copy.save(update_fields=["status"])
-
-            # 5. Ijarani saqlaymiz
-            loan.save()
-
-            # Tizimga logni yozamiz
-            perform_logging(self, loan, SystemLogs.Action.USER_UPDATED, SystemLogs.TargetType.LOAN,
-                            details=f"Admin {request.user.username} kitobni topshirdi. Muddat: {loan.due_date}")
-
-            count += 1
-
-        self.message_user(request,  f"{count} ta kitob muvaffaqiyatli topshirildi va ijara muddati boshlandi.", messages.SUCCESS)
-
+            try:
+                approve_loan_request(loan=loan, admin_user=request.user)
+                success_count += 1
+            except ValidationError as e:
+                error_count += 1
+                self.message_user(request, f"{success_count} ta loan muvaffaqiyatli tasdiqlandi.", messages.SUCCESS,)
+                
+        if success_count:
+            self.message_user(request, f"{success_count} ta loan muvaffaqiyatli tasdiqlandi.", messages.SUCCESS)
+        
+        if error_count and not success_count:
+            self.message_user(request, f"{error_count} ta loan tasdiqlanmadi.", messages.ERROR)
+        
 @admin.register(Fines)
 class FinesAdmin(ModelAdmin):
     list_display = ["loan", "amount", "reason", "is_paid", "paid_at"]
     list_filter = ["is_paid", "reason"]
-    search_fields = ["loan__user__phone_number"]
+    search_fields = ["loan__user__phone_number", "loan__copy__book_title"]
 
 @admin.register(Waitlists)
 class WaitlistsAdmin(ModelAdmin):
     list_display = ["user", "book", "status", "created_at"]
     list_filter = ["status"]
+    search_fields = ["user__phone_number", "book__title"]
 
 @admin.register(SystemLogs)
 class SystemLogsAdmin(ModelAdmin):
     list_display = ["admin", "action", "target_type", "created_at"]
     list_filter = ["action", "target_type"]
-    search_fields = ["admin", "action", "target", "target_type", "details", "created_at"]
+    search_fields = ["admin__username", "details", "target"]
 
-    # Loglarni o'chirib bo'lmaydigan qilish
-    def has_delete_permission(self, request, obj=None):
+    def has_add_permission(self, request):
         return False
 
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+    
 @admin.register(LibrarySettings)
 class LibrarySettingsAdmin(ModelAdmin):
     def has_add_permission(self, request):
@@ -83,4 +80,6 @@ class LibrarySettingsAdmin(ModelAdmin):
 
 @admin.register(Notifications)
 class NotificationsAdmin(ModelAdmin):
-    list_display = ["user", "type", "is_sent", "sent_at"]
+    list_display = ["user", "type", "is_sent", "sent_at", "created_at"]
+    list_filter = ["type", "is_sent"]
+    search_fields = ["user__phone_number", "message"]

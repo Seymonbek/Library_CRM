@@ -41,7 +41,9 @@ def get_books_filtered(category_id, author_id):
     for b in books:
         available_count = b.bookcopies_set.filter(status='on_shelf').count()
         result.append({
-            "id": b.id, "title": b.title, "available": available_count,
+            "id": b.id,
+            "title": b.title,
+            "available": available_count,
             "cover": str(b.cover_image) if b.cover_image else None
         })
     return result
@@ -49,7 +51,12 @@ def get_books_filtered(category_id, author_id):
 
 @sync_to_async
 def create_pending_loan(user, book_id, days):
-    data = {"book_id": book_id, "user_id": user.id, "requested_days": days, "notes": f"Bot orqali {days} kunga so'rov."}
+    data = {
+        "book_id": book_id,
+        "user_id": user.id,
+        "requested_days": days,
+        "notes": f"Bot orqali {days} kunga so'rov."
+    }
 
     class DummyRequest:
         def __init__(self, u): self.user = u
@@ -76,9 +83,11 @@ def get_user_loans_list(user):
 @router.message(F.text == "Kitoblar")
 async def show_categories(message: types.Message):
     categories = await get_categories()
-    if not categories: return await message.answer("Hozircha kitoblar yo'q")
+    if not categories:
+        return await message.answer("Hozircha kitoblar yo'q")
     builder = InlineKeyboardBuilder()
-    for cat in categories: builder.button(text=cat['name'], callback_data=f"cat_{cat['id']}")
+    for cat in categories:
+        builder.button(text=cat['name'], callback_data=f"cat_{cat['id']}")
     builder.adjust(2)
     await message.answer("<b>📚 Bo'limni tanlang:</b>", reply_markup=builder.as_markup())
 
@@ -88,14 +97,12 @@ async def show_authors(callback: types.CallbackQuery):
     category_id = int(callback.data.split("_")[1])
     authors = await get_authors_by_category(category_id)
     builder = InlineKeyboardBuilder()
-    for auth in authors: builder.button(text=auth['name'], callback_data=f"auth_{category_id}_{auth['id']}_0")
+    for auth in authors:
+        builder.button(text=auth['name'], callback_data=f"auth_{category_id}_{auth['id']}_0")
     builder.button(text="⬅️ Orqaga", callback_data="back_to_main_cat")
     builder.adjust(1)
-    await (
-        callback.message.delete() if callback.message.photo else callback.message.edit_text("<b>Muallifni tanlang:</b>",
-                                                                                            reply_markup=builder.as_markup()))
-    if callback.message.photo: await callback.message.answer("<b>Muallifni tanlang:</b>",
-                                                             reply_markup=builder.as_markup())
+    await (callback.message.delete()
+        if callback.message.photo else callback.message.edit_text("<b>Muallifni tanlang:</b>", reply_markup=builder.as_markup()))
 
 
 @router.callback_query(F.data.startswith("auth_"))
@@ -103,7 +110,8 @@ async def show_books_carousel(callback: types.CallbackQuery):
     parts = callback.data.split("_")
     category_id, author_id, book_index = int(parts[1]), int(parts[2]), int(parts[3])
     books_list = await get_books_filtered(category_id, author_id)
-    if not books_list: return await callback.answer("Kitob qolmagan")
+    if not books_list:
+        return await callback.answer("Kitob qolmagan")
     if book_index >= len(books_list):
         book_index = len(books_list) - 1
     elif book_index < 0:
@@ -143,7 +151,8 @@ async def start_loan(callback: types.CallbackQuery, state: FSMContext):
 
 @router.message(LoanState.waiting_for_days)
 async def process_days(message: types.Message, state: FSMContext):
-    if not message.text.isdigit(): return await message.answer("Faqat raqam kiriting!")
+    if not message.text.isdigit():
+        return await message.answer("Faqat raqam kiriting!")
     data = await state.get_data()
     user = await User.objects.filter(telegram_id=message.from_user.id).afirst()
     success, error = await create_pending_loan(user, data['selected_book_id'], int(message.text))
@@ -155,9 +164,11 @@ async def process_days(message: types.Message, state: FSMContext):
 async def show_loans(message: types.Message):
     user = await User.objects.filter(telegram_id=message.from_user.id).afirst()
     loans = await get_user_loans_list(user)
-    if not loans: return await message.answer("Faol ijaralar yo'q.")
+    if not loans:
+        return await message.answer("Faol ijaralar yo'q.")
     text = "<b>📖 Sizning ijaralaringiz:</b>\n\n"
-    for l in loans: text += f"📙 <b>{l['title']}</b>\nHolat: {l['status']}\nQaytarish: {l['due_date']}\n\n"
+    for l in loans:
+        text += f"📙 <b>{l['title']}</b>\nHolat: {l['status']}\nQaytarish: {l['due_date']}\n\n"
     await message.answer(text)
 
 

@@ -5,9 +5,9 @@ from .models import User
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin, ModelAdmin):
-    list_display = ["id", "username", "phone_number", "role", "status", "is_active"]
+    list_display = ["id", "username", "phone_number", "role", "status", "balance", "is_active"]
     list_filter = ["role", "status", "is_active"]
-    search_fields = ["phone_number", "first_name", "last_name", "telegram_id"]
+    search_fields = ["username", "phone_number", "first_name", "last_name", "telegram_id"]
     ordering = ["-date_joined"]
 
     fieldsets = (

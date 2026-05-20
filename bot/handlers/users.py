@@ -42,7 +42,6 @@ async def show_balance(message: types.Message):
     if unpaid_fines:
         text += "<b>Tafsilotlar:</b>\n"
         for fine in unpaid_fines:
-            # \n qo'shildi, jarimalar bir-biriga yopishib ketmaydi
             text += f"❌ {fine['amount']} so'm - {fine['reason']}\n"
 
     await message.answer(text)

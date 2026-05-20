@@ -28,11 +28,35 @@ class PublisherSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "address", "phone_number", "created_at"]
         read_only_fields = ["id", "created_at"]
 
+    @transaction.atomic
+    def create(self, validated_data):
+        publisher = super().create(validated_data)
+        perform_logging(self, publisher, SystemLogs.Action.PUBLISHER_ADDED, SystemLogs.TargetType.PUBLISHER)
+        return publisher
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        publisher = super().update(instance, validated_data)
+        perform_logging(self, publisher, SystemLogs.Action.PUBLISHER_UPDATED, SystemLogs.TargetType.PUBLISHER)
+        return publisher
+
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = ["id", "name", "parent_category_id", "created_at"]
         read_only_fields = ["id", "created_at"]
+
+    @transaction.atomic
+    def create(self, validated_data):
+        category = super().create(validated_data)
+        perform_logging(self, category, SystemLogs.Action.CATEGORY_ADDED, SystemLogs.TargetType.CATEGORY)
+        return category
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        category = super().update(instance, validated_data)
+        perform_logging(self, category, SystemLogs.Action.CATEGORY_UPDATED, SystemLogs.TargetType.CATEGORY)
+        return category
 
 class BooksDetailSerializer(serializers.ModelSerializer):
     author = AuthorSerializer(read_only=True)
@@ -41,9 +65,9 @@ class BooksDetailSerializer(serializers.ModelSerializer):
 
     author_id = serializers.PrimaryKeyRelatedField(queryset=Author.objects.all(), source="author", write_only=True)
 
-    publisher_id = serializers.PrimaryKeyRelatedField(queryset=Publisher.objects.all(), source="publisher", write_only=True, allow_null=True)
+    publisher_id = serializers.PrimaryKeyRelatedField(queryset=Publisher.objects.all(), source="publisher", write_only=True, allow_null=True, required=False)
 
-    category_id = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all(), source="category", write_only=True, allow_null=True)
+    category_id = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all(), source="category", write_only=True, allow_null=True, required=False)
 
     class Meta:
         model = Books

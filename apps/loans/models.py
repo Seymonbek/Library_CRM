@@ -24,6 +24,7 @@ class Waitlists(models.Model):
     class Meta:
         verbose_name = "Navbat"
         verbose_name_plural = "Navbatlar"
+        ordering = ['created_at']
 
     def __str__(self):
         return f"{self.user} — {self.book} ({self.status})"
@@ -55,7 +56,7 @@ class Loans(models.Model):
     class Meta:
         verbose_name = "Ijara"
         verbose_name_plural = "Ijaralar"
-
+        ordering = ['created_at']
     def __str__(self):
         return f"{self.user} — {self.copy} ({self.status})"
 
@@ -83,8 +84,9 @@ class Fines(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Yaratilgan sana")
 
     class Meta:
-        verbose_name = "To'lov"
-        verbose_name_plural = "To'lovlar"
+        verbose_name = "Jarima"
+        verbose_name_plural = "Jarimalar"
+        ordering = ['-created_at']
 
     def __str__(self):
         return f"{self.loan} — {self.amount}"
@@ -115,62 +117,72 @@ class Notifications(models.Model):
     class Meta:
         verbose_name = "Xabar"
         verbose_name_plural = "Xabarlar"
+        ordering = ['-created_at']
 
     def __str__(self):
         return f"{self.user} — {self.type}"
 
 class SystemLogs(models.Model):
-    """
-    Admin harakatlarini kuzatish.
-    Kim, nima qildi, qaysi ob'ektga, qachon.
-    """
+    # Audit trail.
     class Action(models.TextChoices):
-        BOOK_ADDED = 'book_added', 'Kitob qo\'shildi'
-        BOOK_DELETED = 'book_deleted', 'Kitob o\'chirildi'
-        USER_BLOCKED = 'user_blocked', 'Foydalanuvchi bloklandi'
-        FINE_ADDED = 'fine_added', 'Jarima yozildi'
-        LOAN_CREATED = 'loan_created', 'Ijara yaratildi'
-        LOAN_RETURNED = 'loan_returned', 'Kitob qaytarildi'
-        BOOK_UPDATED = 'book_updated', 'Kitob yangilandi'
-        AUTHOR_ADDED = 'author_added', 'Muallif qo\'shildi'
-        AUTHOR_UPDATED = 'author_updated', 'Muallif yangilandi'
-        AUTHOR_DELETED = 'author_deleted', 'Muallif o\'chirildi'
-        PUBLISHER_ADDED = 'publisher_added', 'Nashriyot qo\'shildi'
-        PUBLISHER_UPDATED = 'publisher_updated', 'Nashriyot yangilandi'
-        PUBLISHER_DELETED = 'publisher_deleted', 'Nashriyot o\'chirildi'
-        CATEGORY_ADDED = 'category_added', 'Kategoriya qo\'shildi'
-        CATEGORY_UPDATED = 'category_updated', 'Kategoriya yangilandi'
-        CATEGORY_DELETED = 'category_deleted', 'Kategoriya o\'chirildi'
-        BOOK_COPY_ADDED = 'book_copy_added', 'Kitob nusxasi qo\'shildi'
-        BOOK_COPY_UPDATED = 'book_copy_updated', 'Kitob nusxasi yangilandi'
-        BOOK_COPY_DELETED = 'book_copy_deleted', 'Kitob nusxasi o\'chirildi'
-        FINE_PAID = 'fine_paid', 'Jarima to\'landi'  # Oldingi tahlilda qo'shilgan
-        WAITLIST_CREATED = 'waitlist_created', 'Navbat yaratildi'  # Oldingi tahlilda qo'shilgan
-        WAITLIST_STATUS_CHANGED = 'waitlist_status_changed', 'Navbat holati o\'zgardi'  # Oldingi tahlilda qo'shilgan
-        USER_REGISTERED = 'user_registered', 'Registratsiya'
-        USER_UNBLOCKED = 'user_unblocked', 'Blokdan yechildi'
-        USER_UPDATED = 'user_updated', 'Yangilandi'
+        USER_REGISTERED = "user_registered", "Foydalanuvchi ro'yxatdan o'tdi"
+        USER_UPDATED = "user_updated", "Foydalanuvchi yangilandi"
+        USER_BLOCKED = "user_blocked", "Foydalanuvchi bloklandi"
+        USER_UNBLOCKED = "user_unblocked", "Foydalanuvchi blokdan ochildi"
+
+        BOOK_ADDED = "book_added", "Kitob qo'shildi"
+        BOOK_UPDATED = "book_updated", "Kitob yangilandi"
+        BOOK_DELETED = "book_deleted", "Kitob o'chirildi"
+
+        AUTHOR_ADDED = "author_added", "Muallif qo'shildi"
+        AUTHOR_UPDATED = "author_updated", "Muallif yangilandi"
+        AUTHOR_DELETED = "author_deleted", "Muallif o'chirildi"
+
+        PUBLISHER_ADDED = "publisher_added", "Nashriyot qo'shildi"
+        PUBLISHER_UPDATED = "publisher_updated", "Nashriyot yangilandi"
+        PUBLISHER_DELETED = "publisher_deleted", "Nashriyot o'chirildi"
+
+        CATEGORY_ADDED = "category_added", "Kategoriya qo'shildi"
+        CATEGORY_UPDATED = "category_updated", "Kategoriya yangilandi"
+        CATEGORY_DELETED = "category_deleted", "Kategoriya o'chirildi"
+
+        BOOK_COPY_ADDED = "book_copy_added", "Kitob nusxasi qo'shildi"
+        BOOK_COPY_UPDATED = "book_copy_updated", "Kitob nusxasi yangilandi"
+        BOOK_COPY_DELETED = "book_copy_deleted", "Kitob nusxasi o'chirildi"
+
+        LOAN_REQUESTED = "loan_requested", "Ijara so'rovi yaratildi"
+        LOAN_APPROVED = "loan_approved", "Ijara so'rovi tasdiqlandi"
+        LOAN_RETURNED = "loan_returned", "Kitob qaytarildi"
+
+        FINE_ADDED = "fine_added", "Jarima yozildi"
+        FINE_PAID = "fine_paid", "Jarima to'landi"
+
+        WAITLIST_CREATED = "waitlist_created", "Navbat yaratildi"
+        WAITLIST_STATUS_CHANGED = "waitlist_status_changed", "Navbat holati o'zgardi"
 
     class TargetType(models.TextChoices):
-        BOOK = 'book', 'Kitob'
-        USER = 'user', 'Foydalanuvchi'
-        LOAN = 'loan', 'Ijara'
-        FINE = 'fine', 'Jarima'
-        AUTHOR = 'author', 'Muallif'
-        PUBLISHER = 'publisher', 'Nashriyot'
-        CATEGORY = 'category', 'Kategoriya'
-        BOOK_COPY = 'book_copy', 'Kitob nusxasi'
+        USER = "user", "Foydalanuvchi"
+        BOOK = "book", "Kitob"
+        AUTHOR = "author", "Muallif"
+        PUBLISHER = "publisher", "Nashriyot"
+        CATEGORY = "category", "Kategoriya"
+        BOOK_COPY = "book_copy", "Kitob nusxasi"
+        LOAN = "loan", "Ijara"
+        FINE = "fine", "Jarima"
+        WAITLIST = "waitlist", "Navbat"
+        NOTIFICATION = "notification", "Xabar"
 
     admin = models.ForeignKey('users.User', on_delete=models.SET_NULL, null=True, related_name='system_logs', verbose_name="Admin")
     action = models.CharField(max_length=25, choices=Action.choices, verbose_name="Amal")
     target = models.IntegerField(null=True, blank=True, verbose_name="Ob'ekt ID")
-    target_type = models.CharField(max_length=10,null=True, blank=True, choices=TargetType.choices, verbose_name="Ob'ekt turi")
+    target_type = models.CharField(max_length=20,null=True, blank=True, choices=TargetType.choices, verbose_name="Ob'ekt turi")
     details = models.TextField(null=True, blank=True, verbose_name="Tafsilotlar")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Yaratilgan sana")
 
     class Meta:
         verbose_name = "Log"
         verbose_name_plural = "Loglar"
+        ordering = ['-created_at']
 
     def __str__(self):
         return f"{self.admin} — {self.action} — {self.target}"
