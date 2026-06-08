@@ -28,7 +28,7 @@ class IsSelfOrAdmin(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
         if request.user.role in {User.Role.ADMIN, User.Role.SUPER_ADMIN}:
             return True
-        return obj == request.user.pk
+        return obj == request.user
     
 class ReadOnlyOrLibrarian(permissions.BasePermission):
     """

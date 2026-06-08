@@ -2,16 +2,19 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 from datetime import timedelta
+from django.core.exceptions import ImproperlyConfigured
+
 
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.getenv("SECRET_KEY", "insecure-default-key")
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise ImproperlyConfigured("SECRET_KEY environment variable sozlanmagan!")
 DEBUG = os.getenv("DEBUG", "True") == "True"
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 
-# ── Applications ──────────────────────────────────────────
 DJANGO_APPS = [
     "unfold",
     "unfold.contrib.filters",
@@ -158,6 +161,9 @@ SPECTACULAR_SETTINGS = {
 
 # ── CORS ──────────────────────────────────────────────────
 CORS_ALLOW_ALL_ORIGINS = DEBUG  # Faqat development uchun
+_cors_origins = os.getenv("CORS_ALLOWED_ORIGINS", "")
+CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors_origins.split(",") if o.strip()] if not DEBUG else []
+
 
 # ── Static & Media ─────────────────────────────────────────
 STATIC_URL = "/static/"

@@ -1,6 +1,8 @@
 from rest_framework import mixins, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters
 from drf_spectacular.utils import extend_schema
 
 from apps.users.models import User
@@ -31,6 +33,11 @@ class LoanViewSet(
         "issued_by",
         "returned_to",
     )
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["status"]
+    search_fields = ["user__phone_number", "copy__book__title"]
+    ordering_fields = ["created_at", "due_date"]
+    ordering = ["-created_at"]
 
     def get_queryset(self):
         user = getattr(self.request, "user", None)
@@ -66,6 +73,8 @@ class LoanViewSet(
         serializer.is_valid(raise_exception=True)
         loan = serializer.save()
 
+        # Re-fetch with select_related to avoid N+1
+        loan = self.get_queryset().get(pk=loan.pk)
         output = LoanListSerializer(loan, context=self.get_serializer_context())
         return Response(output.data, status=status.HTTP_201_CREATED)
 

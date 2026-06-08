@@ -1,17 +1,35 @@
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action, permission_classes
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenRefreshView, TokenObtainPairView
 
 from apps.users.permissions import IsAdminOrSuperAdmin
 
 from .models import User
-from .serializers import PhoneTokenObtainPairSerializer, UserAdminSerializer, UserProfileSerializer, UserSelfUpdateSerializer, UserRegistrationSerializer, UserShortSerializer
-from drf_spectacular.utils import extend_schema
+from .serializers import (
+    PhoneTokenObtainPairSerializer, UserAdminSerializer, UserProfileSerializer,
+    UserSelfUpdateSerializer, UserRegistrationSerializer, UserShortSerializer,
+    TelegramRegisterSerializer, TelegramLoginSerializer,
+)
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import serializers as drf_serializers
 
 
 # Login viewni o'rab olamiz va tag beramiz
-@extend_schema(tags=['Auth'])
+@extend_schema(
+    tags=['Auth'],
+    responses={
+        200: inline_serializer(
+            name='LoginResponse',
+            fields={
+                'refresh': drf_serializers.CharField(),
+                'access': drf_serializers.CharField(),
+                'user': UserShortSerializer(),
+            }
+        )
+    }
+)
 class LoginView(TokenObtainPairView):
     """
     Foydalanuvchi login qilishi va JWT token olishi uchun API.
@@ -29,6 +47,37 @@ class RefreshTokenView(TokenRefreshView):
     Eski refresh tokenni berib yangi access token olish API.
     """
     permission_classes = [permissions.AllowAny]
+
+
+# ──── TELEGRAM AUTH (Bot uchun parolsiz) ───────────────────
+
+@extend_schema(tags=['Telegram Auth'])
+class TelegramRegisterView(APIView):
+    """
+    Telegram bot orqali ro'yxatdan o'tish — parolsiz.
+    telegram_id, phone_number, first_name, last_name yuboriladi.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        serializer = TelegramRegisterSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        return Response(serializer.to_representation(user), status=status.HTTP_201_CREATED)
+
+
+@extend_schema(tags=['Telegram Auth'])
+class TelegramLoginView(APIView):
+    """
+    Telegram bot orqali login — faqat telegram_id yuboriladi.
+    Agar user mavjud bo'lsa — JWT token qaytaradi (parolsiz).
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        serializer = TelegramLoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(serializer.validated_data, status=status.HTTP_200_OK)
 
 @extend_schema(tags=['Users'])
 class UserViewSet(viewsets.ModelViewSet):

@@ -1,15 +1,10 @@
-from datetime import timezone, timedelta
-from logging import WARNING
-
-from  django.contrib import admin, messages
-# from django.contrib.messages import WARNING
-from jsonschema import ValidationError
+from django.contrib import admin, messages
+from rest_framework.exceptions import ValidationError
 from unfold.admin import ModelAdmin
 
 from apps.loans.services import approve_loan_request
 from .models import Loans, Fines, Waitlists, Notifications, SystemLogs, LibrarySettings
-from .utils import perform_logging
-from ..books.models import BookCopies
+
 
 
 @admin.register(Loans)
@@ -22,35 +17,35 @@ class LoanAdmin(ModelAdmin):
 
     @admin.action(description="Tanlangan pending so'rovlarni tasdiqlash")
     def issue_book_action(self, request, queryset):
-        
         pending_loans = queryset.filter(status=Loans.Status.PENDING).select_related("copy", "copy__book", "user")
 
         if not pending_loans.exists():
-            self.message_user(request, "Hech qanday kutilayotgan so'rov tanlanmadi.", message=WARNING)
+            self.message_user(request, "Hech qanday kutilayotgan so'rov tanlanmadi.", messages.WARNING)
             return
-        
+
         success_count = 0
-        error_count = 0
+        error_messages = []
 
         for loan in pending_loans:
             try:
-                approve_loan_request(loan=loan, admin_user=request.user)
+                approve_loan_request(loan=loan, actor=request.user)
                 success_count += 1
             except ValidationError as e:
-                error_count += 1
-                self.message_user(request, f"{success_count} ta loan muvaffaqiyatli tasdiqlandi.", messages.SUCCESS,)
-                
+                detail = e.detail if hasattr(e, 'detail') else str(e)
+                error_messages.append(f"Loan #{loan.pk}: {detail}")
+
         if success_count:
             self.message_user(request, f"{success_count} ta loan muvaffaqiyatli tasdiqlandi.", messages.SUCCESS)
-        
-        if error_count and not success_count:
-            self.message_user(request, f"{error_count} ta loan tasdiqlanmadi.", messages.ERROR)
+
+        for err in error_messages:
+            self.message_user(request, err, messages.ERROR)
+
         
 @admin.register(Fines)
 class FinesAdmin(ModelAdmin):
     list_display = ["loan", "amount", "reason", "is_paid", "paid_at"]
     list_filter = ["is_paid", "reason"]
-    search_fields = ["loan__user__phone_number", "loan__copy__book_title"]
+    search_fields = ["loan__user__phone_number", "loan__copy__book__title"]
 
 @admin.register(Waitlists)
 class WaitlistsAdmin(ModelAdmin):

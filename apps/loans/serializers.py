@@ -1,27 +1,11 @@
-from decimal import Decimal
-from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
 
 from apps.loans.models import Loans, Fines, Waitlists, Notifications, SystemLogs, LibrarySettings
 from apps.loans.services import create_loan_request, create_waitlist_entry, return_loan
 from apps.users.models import User
+from apps.users.serializers import UserShortSerializer
 from apps.books.models import Books, BookCopies
-from .utils import perform_logging
-
-class UserShortSerializer(serializers.ModelSerializer):
-    """
-    Foydalanuvchi haqida qisqacha ma'lumot beruvchi serializer.
-
-    Ushbu serializer foydalanuvchining faqat asosiy maydonlarini (ism, familiya,
-    telefon raqami va roli) qaytaradi. Bu ma'lumotlar odatda ijara (loan) yoki
-    navbat (waitlist) kabi boshqa serializerlar ichida "nested" (ichma-ich)
-    holatda foydalanish uchun mo'ljallangan
-    """
-    class Meta:
-        model = User
-        fields = ["id", "first_name", "last_name", "phone_number", "role"]
-        read_only_fields = ["id"]
 
 class BookShortSerializer(serializers.ModelSerializer):
     """
@@ -80,12 +64,16 @@ class LoanListSerializer(serializers.ModelSerializer):
         return obj.status == Loans.Status.BORROWED and obj.due_date is not None and obj.due_date < timezone.now().date()
 
 class LoanCreateSerializer(serializers.Serializer):
-    book_id = serializers.PrimaryKeyRelatedField(
-        queryset=Books.objects.all(),
-        source="book",
-    )
+    book_id = serializers.PrimaryKeyRelatedField(queryset=Books.objects.all(), source="book",)
     requested_days = serializers.IntegerField(min_value=1)
     notes = serializers.CharField(required=False, allow_blank=True)
+
+    def validate_requested_days(self, value):
+        from apps.loans.services import get_max_loan_days
+        max_days = get_max_loan_days()
+        if value > max_days:
+            raise serializers.ValidationError(f"Maksimal ruxsat etilgan muddat {max_days} kun")
+        return value
 
     def create(self, validated_data):
         request = self.context["request"]

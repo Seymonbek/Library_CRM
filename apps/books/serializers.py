@@ -2,7 +2,7 @@ from django.db import transaction
 from rest_framework import serializers
 from .models import Author, Publisher, Category, Books, BookCopies
 from apps.loans.models import SystemLogs
-from .utils import perform_logging
+from apps.loans.utils import perform_logging
 
 class AuthorSerializer(serializers.ModelSerializer):
     class Meta:
@@ -43,7 +43,7 @@ class PublisherSerializer(serializers.ModelSerializer):
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
-        fields = ["id", "name", "parent_category_id", "created_at"]
+        fields = ["id", "name", "parent_category", "created_at"]
         read_only_fields = ["id", "created_at"]
 
     @transaction.atomic
@@ -82,6 +82,10 @@ class BooksDetailSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "created_at"]
 
+    def validate_isbn(self, value):
+        """Bo'sh string kelsa None ga aylantirish (unique constraint uchun)"""
+        return value if value else None
+
     @transaction.atomic
     def create(self, validated_data):
         book = super().create(validated_data)
@@ -96,11 +100,11 @@ class BooksDetailSerializer(serializers.ModelSerializer):
 
 class BookListSerializer(serializers.ModelSerializer):
     author_name = serializers.SerializerMethodField()
+    available_copies = serializers.IntegerField(source='available_copies_count', read_only=True)
 
     class Meta:
         model = Books
-        fields = ["id", "title", "author_name", "language", "isbn"]
-
+        fields = ["id", "title", "author_name", "language", "isbn", "available_copies"]
 
     def get_author_name(self, obj) -> str:
         return f"{obj.author.first_name} {obj.author.last_name}"
@@ -122,7 +126,7 @@ class BookCopySerializer(serializers.ModelSerializer):
         return copy
 
     @transaction.atomic
-    def update(self, instance, validate_data):
-        copy = super().update(instance, validate_data)
+    def update(self, instance, validated_data):
+        copy = super().update(instance, validated_data)
         perform_logging(self, copy, SystemLogs.Action.BOOK_COPY_UPDATED, SystemLogs.TargetType.BOOK_COPY)
         return copy

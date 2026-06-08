@@ -4,7 +4,7 @@ from .models import Category, Publisher, Author, Books, BookCopies
 
 @admin.register(Category)
 class CategoryAdmin(ModelAdmin):
-    list_display = ["name", "parent_category_id", "created_at"]
+    list_display = ["name", "parent_category", "created_at"]
     search_fields = ["name"]
 
 @admin.register(Publisher)

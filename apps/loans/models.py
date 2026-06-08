@@ -57,13 +57,17 @@ class Loans(models.Model):
         verbose_name = "Ijara"
         verbose_name_plural = "Ijaralar"
         ordering = ['created_at']
+
     def __str__(self):
         return f"{self.user} — {self.copy} ({self.status})"
 
     @property
     def is_overdue(self):
-        """Muddati o'tdimi?"""
-        return self.status == self.Status.BORROWED and self.due_date < timezone.now().date()
+        return (
+            self.status == self.Status.BORROWED
+            and self.due_date is not None
+            and self.due_date < timezone.now().date()
+        )
 
 class Fines(models.Model):
     """
@@ -173,7 +177,7 @@ class SystemLogs(models.Model):
         NOTIFICATION = "notification", "Xabar"
 
     admin = models.ForeignKey('users.User', on_delete=models.SET_NULL, null=True, related_name='system_logs', verbose_name="Admin")
-    action = models.CharField(max_length=25, choices=Action.choices, verbose_name="Amal")
+    action = models.CharField(max_length=50, choices=Action.choices, verbose_name="Amal")
     target = models.IntegerField(null=True, blank=True, verbose_name="Ob'ekt ID")
     target_type = models.CharField(max_length=20,null=True, blank=True, choices=TargetType.choices, verbose_name="Ob'ekt turi")
     details = models.TextField(null=True, blank=True, verbose_name="Tafsilotlar")
@@ -205,5 +209,5 @@ class LibrarySettings(models.Model):
     # Admin panelda ikkinchi yozuv qo'shishni taqiqlash uchun save'ni override qilamiz
     def save(self, *args, **kwargs):
         if not self.pk and LibrarySettings.objects.exists():
-            return # Agar bitta bo'lsa yana yaratib bo'lmaydi
+            raise ValueError("Faqat bitta sozlama yozuvi bo'lishi mumkin")
         return super().save(*args, **kwargs)

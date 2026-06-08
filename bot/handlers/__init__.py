@@ -1,1 +1,1 @@
-from . import start, books
+from . import start, books, loans, profile, admin

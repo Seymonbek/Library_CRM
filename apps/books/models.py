@@ -6,7 +6,7 @@ class Category(models.Model):
     Misol: Adabiyot → O'zbek adabiyoti
     """
     name = models.CharField(max_length=100,unique=True, verbose_name="Kategoriya nomi")
-    parent_category_id = models.ForeignKey('self', null=True, blank=True, on_delete=models.CASCADE, verbose_name="Tegishli bo'lim")
+    parent_category = models.ForeignKey('self', null=True, blank=True, on_delete=models.CASCADE, verbose_name="Tegishli bo'lim")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Yaratilgan sana")
 
     class Meta:
@@ -101,7 +101,7 @@ class Books(models.Model):
     author = models.ForeignKey(Author, on_delete=models.CASCADE, related_name="books", verbose_name="Muallif")
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name="books", verbose_name="Kategoriya")
     publisher = models.ForeignKey(Publisher, on_delete=models.SET_NULL, null=True, related_name="books", verbose_name="Nashriyot")
-    isbn = models.CharField(max_length=13, unique=True, blank=True, verbose_name="ISBN")
+    isbn = models.CharField(max_length=13, unique=True, blank=True, null=True, verbose_name="ISBN")
     language = models.CharField(max_length=20, choices=Language.choices, default=Language.UZBEK, verbose_name="Til")
     page_count = models.PositiveIntegerField(null=True, blank=True, verbose_name="Sahifalar soni")
     description = models.TextField(null=True, blank=True, verbose_name="Tavsif")

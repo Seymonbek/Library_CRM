@@ -17,6 +17,7 @@ python-dotenv==1.0.1
 
 # Aiogram (Telegram bot)
 aiogram==3.7.0
+aiohttp==3.9.5
 
 # CORS
 django-cors-headers==4.4.0
@@ -27,3 +28,5 @@ redis==5.0.8
 
 # Utils
 Pillow==10.4.0
+
+django-unfold==0.40.0

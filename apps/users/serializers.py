@@ -1,16 +1,15 @@
 from django.db import transaction
 from rest_framework import serializers
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.loans.models import SystemLogs
 from apps.loans.utils import perform_logging
 from .models import User
 
-def normalize_phone_number(value: str) -> str:
+def normalize_phone_number(value):
     return value.strip().replace(" ", "")
 
-def build_unique_username(phone_number: str) -> str:
+def build_unique_username(phone_number):
     base = "".join(ch for ch in phone_number if ch.isdigit()) or "user"
     username = base
 
@@ -44,7 +43,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             "id", "phone_number", "first_name", "last_name",
-            "role", "status", "is_blocked", "is_active", "date_joined"
+            "role", "status", "balance", "is_blocked", "is_active", "date_joined"
         ]
         read_only_fields = fields
 
@@ -108,7 +107,7 @@ class UserAdminSerializer(serializers.ModelSerializer):
             perform_logging(self, user, SystemLogs.Action.USER_UPDATED, SystemLogs.TargetType.USER, details=f"Foydalanuvchi roli o'zgardi: {old_role} -> {user.role}",)
 
         return user
-    
+        
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
     """
@@ -145,6 +144,16 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         perform_logging(self, user, SystemLogs.Action.USER_REGISTERED, SystemLogs.TargetType.USER,
                         details=f"Yangi foydalanuvchi: {user.phone_number}")
         return user
+
+    def to_representation(self, instance):
+        refresh = RefreshToken.for_user(instance)
+        return {
+            "user": UserShortSerializer(instance).data,
+            "tokens": {
+                "refresh": str(refresh),
+                "access": str(refresh.access_token),
+            }
+        }
     
 
 class PhoneTokenObtainPairSerializer(serializers.Serializer):
@@ -178,6 +187,103 @@ class PhoneTokenObtainPairSerializer(serializers.Serializer):
         if not user.check_password(password):
             raise serializers.ValidationError(
                 {"detail": "Login yoki parol noto'g'ri"}
+            )
+
+        if not user.is_active:
+            raise serializers.ValidationError(
+                {"detail": "Bu akkaunt faol emas"}
+            )
+
+        if user.status == User.Status.BLOCKED:
+            raise serializers.ValidationError(
+                {"detail": "Bu akkaunt bloklangan"}
+            )
+
+        refresh = RefreshToken.for_user(user)
+
+        return {
+            "refresh": str(refresh),
+            "access": str(refresh.access_token),
+            "user": UserShortSerializer(user).data,
+        }
+
+
+# ══════════════════════════════════════════════════════════
+# TELEGRAM AUTH — Bot uchun parolsiz autentifikatsiya
+# ══════════════════════════════════════════════════════════
+
+class TelegramRegisterSerializer(serializers.Serializer):
+    """
+    Telegram orqali ro'yxatdan o'tish — parolsiz.
+    Faqat oddiy foydalanuvchilar uchun.
+    """
+    telegram_id = serializers.IntegerField()
+    phone_number = serializers.CharField()
+    first_name = serializers.CharField(max_length=30)
+    last_name = serializers.CharField(max_length=30)
+
+    def validate_phone_number(self, value):
+        value = normalize_phone_number(value)
+        if User.objects.filter(phone_number=value).exists():
+            raise serializers.ValidationError("Bu telefon raqami allaqachon ro'yxatdan o'tgan")
+        return value
+
+    def validate_telegram_id(self, value):
+        if User.objects.filter(telegram_id=value).exists():
+            raise serializers.ValidationError("Bu Telegram akkaunt allaqachon ro'yxatdan o'tgan")
+        return value
+
+    @transaction.atomic
+    def create(self, validated_data):
+        phone_number = validated_data["phone_number"]
+
+        user = User(
+            username=build_unique_username(phone_number),
+            phone_number=phone_number,
+            first_name=validated_data["first_name"],
+            last_name=validated_data["last_name"],
+            telegram_id=validated_data["telegram_id"],
+            role=User.Role.USER,
+            status=User.Status.ACTIVE,
+        )
+        user.set_unusable_password()  # Parol kerak emas
+        user.save()
+
+        perform_logging(
+            actor=user,
+            instance=user,
+            action_type=SystemLogs.Action.USER_REGISTERED,
+            target_type=SystemLogs.TargetType.USER,
+            details=f"Telegram orqali ro'yxatdan o'tdi: {user.phone_number}"
+        )
+        return user
+
+    def to_representation(self, instance):
+        refresh = RefreshToken.for_user(instance)
+        return {
+            "user": UserShortSerializer(instance).data,
+            "tokens": {
+                "refresh": str(refresh),
+                "access": str(refresh.access_token),
+            }
+        }
+
+
+class TelegramLoginSerializer(serializers.Serializer):
+    """
+    Telegram orqali login — telegram_id bo'yicha.
+    Parol so'ralmaydi. Agar user topilsa — token qaytaradi.
+    """
+    telegram_id = serializers.IntegerField()
+
+    def validate(self, attrs):
+        telegram_id = attrs["telegram_id"]
+
+        user = User.objects.filter(telegram_id=telegram_id).first()
+
+        if user is None:
+            raise serializers.ValidationError(
+                {"detail": "Bu Telegram akkaunt ro'yxatdan o'tmagan"}
             )
 
         if not user.is_active:

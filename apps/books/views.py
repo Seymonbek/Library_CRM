@@ -1,3 +1,4 @@
+from django.db.models import Count, Q
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, viewsets
 from drf_spectacular.utils import extend_schema
@@ -15,13 +16,47 @@ from .serializers import (
 )
 
 
+
 class LibrarianManagedModelViewSet(viewsets.ModelViewSet):
     permission_classes = [ReadOnlyOrLibrarian]
+
+    def perform_destroy(self, instance):
+        from apps.loans.models import SystemLogs
+        from apps.loans.utils import perform_logging
+
+        # Model nomiga qarab action va target_type aniqlash
+        model_name = instance.__class__.__name__.lower()
+        action_map = {
+            'books': (SystemLogs.Action.BOOK_DELETED, SystemLogs.TargetType.BOOK),
+            'author': (SystemLogs.Action.AUTHOR_DELETED, SystemLogs.TargetType.AUTHOR),
+            'publisher': (SystemLogs.Action.PUBLISHER_DELETED, SystemLogs.TargetType.PUBLISHER),
+            'category': (SystemLogs.Action.CATEGORY_DELETED, SystemLogs.TargetType.CATEGORY),
+            'bookcopies': (SystemLogs.Action.BOOK_COPY_DELETED, SystemLogs.TargetType.BOOK_COPY),
+        }
+
+        action_type, target_type = action_map.get(model_name, (None, None))
+
+        if action_type:
+            perform_logging(
+                actor=self.request.user,
+                instance=instance,
+                action_type=action_type,
+                target_type=target_type,
+                details=f"{instance} o'chirildi"
+            )
+
+        instance.delete()
+
 
 
 @extend_schema(tags=["Books"])
 class BookViewSet(LibrarianManagedModelViewSet):
-    queryset = Books.objects.all().select_related("author", "category", "publisher")
+    queryset = Books.objects.all().select_related("author", "category", "publisher").annotate(
+        available_copies_count=Count(
+            'bookcopies',
+            filter=Q(bookcopies__status='on_shelf')
+        )
+    )
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = BookFilter
     search_fields = ["title", "author__first_name", "author__last_name", "isbn"]

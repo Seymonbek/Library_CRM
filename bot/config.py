@@ -1,3 +1,11 @@
+"""
+Bot konfiguratsiyasi.
+
+Barcha sozlamalar .env faylidan o'qiladi.
+API_BASE_URL — Django API manzili (bot shu orqali gaplashadi).
+BOT_TOKEN — Telegram BotFather'dan olingan token.
+"""
+
 import os
 from dotenv import load_dotenv
 
